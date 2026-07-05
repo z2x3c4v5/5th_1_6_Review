@@ -50,17 +50,21 @@ const UNIT_POOLS = {
     { emoji: '🎬', image: '/images/u5-movies.png', question: "Let's go to the movies.", answer: "Sorry, I can't." },
     { emoji: '🎲', image: '/images/u5-boardgame.png', question: "Let's play a board game.", answer: 'Sounds good.' },
     { emoji: '📝', image: '/images/u5-dohomework.png', question: "Let's do homework.", answer: "Sorry, I can't." },
+    { emoji: '🛍️', image: '/images/u5-shopping.png', question: "Let's go shopping.", answer: 'Sounds great.' },
+    { emoji: '📖', image: '/images/u5-comicbooks.png', question: "Let's read comic books.", answer: 'Sounds great.' },
   ],
   '6단원': [
     { emoji: '🏖️', image: '/images/u6-going.png', question: 'What will you do this summer?', answer: "I'll go to the beach." },
     { emoji: '👴', image: '/images/u6-visiting.png', question: 'What will you do this summer?', answer: "I'll visit my grandpa." },
     { emoji: '📚', image: '/images/u6-reading.png', question: 'What will you do this summer?', answer: "I'll read many books." },
     { emoji: '🍅', image: '/images/u6-growing.png', question: 'What will you do this summer?', answer: "I'll grow tomatoes." },
+    { emoji: '🔬', image: '/images/u6-joinining.png', question: 'What will you do this summer?', answer: "I'll join a science camp." },
+    { emoji: '🥋', image: '/images/u6-learning.png', question: 'What will you do this summer?', answer: "I'll learn Taekwondo." },
   ],
 };
 
-// 6개 단원 × 4문장 = 24개 일반칸 (보드 구조는 그대로)
-const SENTENCES_PER_UNIT = 4;
+// 보드 일반칸은 24개. 선택한 단원들이 이 24칸을 균등하게 나눠 갖는다.
+const CONTENT_CELLS = 24;
 
 // 보드 배치 틀: START + 일반칸 24 + 액션칸 3 + FINISH = 29칸
 // (원래 동물 게임과 동일한 구조 — 'content' 자리에만 표현이 들어갑니다)
@@ -114,11 +118,19 @@ const pickForUnit = (pool, n) => {
   return shuffle(result.slice(0, n));
 };
 
-// 매 게임마다 단원별 6문장을 뽑아 24개 일반칸에 무작위로 배치한 보드를 생성
-const buildBoard = () => {
+// 선택한 단원들이 24개 일반칸을 균등하게 나눠 갖도록 문장을 뽑는다.
+// 표현이 배정된 칸 수보다 적으면 pickForUnit이 무작위 반복으로 채운다.
+const buildBoard = (selectedUnits) => {
+  const units = (selectedUnits && selectedUnits.length ? selectedUnits : Object.keys(UNIT_POOLS)).filter(
+    (u) => UNIT_POOLS[u],
+  );
+  const base = Math.floor(CONTENT_CELLS / units.length);
+  const remainder = CONTENT_CELLS % units.length; // 앞쪽 단원이 1칸씩 더 가져감
+
   const picked = [];
-  Object.entries(UNIT_POOLS).forEach(([unit, pool]) => {
-    pickForUnit(pool, SENTENCES_PER_UNIT).forEach((item) => picked.push({ ...item, unit }));
+  units.forEach((unit, i) => {
+    const count = base + (i < remainder ? 1 : 0);
+    pickForUnit(UNIT_POOLS[unit], count).forEach((item) => picked.push({ ...item, unit }));
   });
   const contentQueue = shuffle(picked);
 
@@ -308,11 +320,14 @@ const WORD_MEANING = {
   // 5단원 (~하자)
   "let's": '~하자', lets: '~하자', swimming: '수영', movies: '영화 (영화관)',
   play: '(게임을) 하다/놀다', board: '보드/판', game: '게임', homework: '숙제',
-  sounds: '~하게 들리다', good: '좋은', sorry: '미안해',
+  sounds: '~하게 들리다', good: '좋은', great: '아주 좋은/멋진', sorry: '미안해',
+  shopping: '쇼핑/장보기', comic: '만화', books: '책들', comicbooks: '만화책',
   // 6단원 (여름에 무엇을 할 거니?)
   will: '~할 것이다', "i'll": '나는 ~할 것이다', ill: '나는 ~할 것이다',
   summer: '여름', beach: '해변/바닷가', visit: '방문하다/찾아뵙다', grandpa: '할아버지',
-  read: '읽다', many: '많은', books: '책들', grow: '기르다/재배하다', tomatoes: '토마토들',
+  read: '읽다', many: '많은', grow: '기르다/재배하다', tomatoes: '토마토들',
+  join: '참가하다/가입하다', science: '과학', camp: '캠프/야영', learn: '배우다',
+  taekwondo: '태권도',
 };
 
 const lookupMeaning = (raw) => {
@@ -349,8 +364,11 @@ const pickWritingCells = (board, perUnit = 2) => {
   return out;
 };
 
+const ALL_UNITS = Object.keys(UNIT_POOLS);
+
 export default function App() {
-  const [board, setBoard] = useState(() => buildBoard());
+  const [selectedUnits, setSelectedUnits] = useState(ALL_UNITS);
+  const [board, setBoard] = useState(() => buildBoard(ALL_UNITS));
   const [gameState, setGameState] = useState('lobby');
   const [turn, setTurn] = useState('player');
   const [gameMode, setGameMode] = useState('answerOnly');
@@ -944,8 +962,22 @@ export default function App() {
     setWriteRevealed(false);
   };
 
+  // 단원 토글: 최소 1개는 남기고, 바꾸면 로비에서 보드를 새로 구성
+  const toggleUnit = (unit) => {
+    if (gameState !== 'lobby') return;
+    setSelectedUnits((prev) => {
+      const next = prev.includes(unit) ? prev.filter((u) => u !== unit) : [...prev, unit];
+      if (next.length === 0) return prev; // 전부 끄는 것은 방지
+      const ordered = ALL_UNITS.filter((u) => next.includes(u));
+      setBoard(buildBoard(ordered));
+      setBoardWritingMode(false);
+      setWritingCellIds(new Set());
+      return ordered;
+    });
+  };
+
   const resetGame = () => {
-    setBoard(buildBoard());
+    setBoard(buildBoard(selectedUnits));
     setPlayerPos(0);
     setAiPos(0);
     setPlayerRest(false);
@@ -1164,16 +1196,44 @@ export default function App() {
       {boardWritingMode && (
         <div className="w-full max-w-5xl bg-violet-100 border-4 border-violet-400 p-3 rounded-2xl mb-4 text-center z-10 animate-pulse">
           <p className="text-base md:text-lg font-black text-violet-800">
-            ✏️ 쓰기 활동 — 단원별 2개씩, 총 <span className="text-violet-900">12개 칸</span>에 표시된 ✏️ 쓰기 칸을 눌러보세요
+            ✏️ 쓰기 활동 — 총 <span className="text-violet-900">{writingCellIds.size}개 칸</span>에 표시된 ✏️ 쓰기 칸을 눌러 빈칸 포함 전체 문장을 공책에 써보세요
           </p>
         </div>
       )}
 
       {gameState === 'lobby' && (
-        <div className="w-full max-w-5xl bg-white/95 p-4 rounded-2xl shadow-md mb-4 text-center border-4 border-cyan-400 z-10 animate-pulse">
-          <h2 className="text-xl md:text-2xl font-black text-cyan-700">
+        <div className="w-full max-w-5xl bg-white/95 p-4 rounded-2xl shadow-md mb-4 z-10 border-4 border-cyan-400">
+          <h2 className="text-lg md:text-xl font-black text-cyan-700 text-center mb-3">
             💡 그림을 클릭하면 질문과 대답 문장이 나와요. 듣고 따라 읽고 공책에 써보며 연습해봅시다!
           </h2>
+          <div className="border-t-2 border-dashed border-cyan-200 pt-3">
+            <p className="text-sm md:text-base font-black text-slate-600 text-center mb-2">
+              📚 복습할 단원을 골라보세요 <span className="text-slate-400 font-bold">(고른 단원으로 보드가 채워져요)</span>
+            </p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {ALL_UNITS.map((unit) => {
+                const on = selectedUnits.includes(unit);
+                return (
+                  <button
+                    key={unit}
+                    onClick={() => toggleUnit(unit)}
+                    className={`px-4 py-2 rounded-full font-black text-sm md:text-base border-2 transition-all shadow-sm ${
+                      on
+                        ? `${UNIT_COLORS[unit]} ring-2 ring-offset-1 ring-cyan-400`
+                        : 'bg-gray-100 text-gray-400 border-gray-200 hover:bg-gray-200'
+                    }`}
+                  >
+                    {on ? '✓ ' : ''}
+                    {unit}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs font-bold text-slate-400 text-center mt-2">
+              선택: {selectedUnits.length}개 단원 · 단원당 약 {Math.floor(CONTENT_CELLS / selectedUnits.length)}칸
+              {CONTENT_CELLS % selectedUnits.length ? ' 이상' : ''} (같은 표현이 여러 번 나올 수 있어요)
+            </p>
+          </div>
         </div>
       )}
 
