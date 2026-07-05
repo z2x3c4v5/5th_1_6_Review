@@ -3,9 +3,9 @@ import React, { useState, useEffect, useRef } from 'react';
 // =================================================================
 //  ✏️ 여기만 채우면 됩니다 — 단원별 표현 + 이미지
 // -----------------------------------------------------------------
-//  - 4개 단원(Unit 1~4)에 표현을 넣어주세요.
-//  - 한 단원에 6문장 이상 넣어두면, 게임을 시작할 때마다
-//    그 중 6문장을 "무작위로" 뽑아 보드에 배치합니다. (매번 새 게임!)
+//  - 6개 단원(Unit 1~6)에 표현을 넣어주세요.
+//  - 한 단원에 4문장 이상 넣어두면, 게임을 시작할 때마다
+//    그 중 4문장을 "무작위로" 뽑아 보드에 배치합니다. (매번 새 게임!)
 //  - image: Firebase Storage 다운로드 URL(또는 /images/파일명)을 붙여넣으세요.
 //  - emoji: 그림(image)이 없거나 불러오지 못할 때 대신 보여줄 이모지입니다.
 //           (emoji도 비워두면 💬 아이콘이 표시됩니다.)
@@ -45,9 +45,22 @@ const UNIT_POOLS = {
     { emoji: '🍶', image: '/images/u4-bottle-mikes.png', question: 'Whose bottle is that?', answer: "It's Mike's." },
     { emoji: '🖍️', image: '/images/u4-pencilcase-sams.png', question: 'Whose pencil case is that?', answer: "It's Sam's." },
   ],
+  '5단원': [
+    { emoji: '🏊', image: '/images/u5-swimming.png', question: "Let's go swimming.", answer: 'Sounds good.' },
+    { emoji: '🎬', image: '/images/u5-movies.png', question: "Let's go to the movies.", answer: "Sorry, I can't." },
+    { emoji: '🎲', image: '/images/u5-boardgame.png', question: "Let's play a board game.", answer: 'Sounds good.' },
+    { emoji: '📝', image: '/images/u5-dohomework.png', question: "Let's do homework.", answer: "Sorry, I can't." },
+  ],
+  '6단원': [
+    { emoji: '🏖️', image: '/images/u6-going.png', question: 'What will you do this summer?', answer: "I'll go to the beach." },
+    { emoji: '👴', image: '/images/u6-visiting.png', question: 'What will you do this summer?', answer: "I'll visit my grandpa." },
+    { emoji: '📚', image: '/images/u6-reading.png', question: 'What will you do this summer?', answer: "I'll read many books." },
+    { emoji: '🍅', image: '/images/u6-growing.png', question: 'What will you do this summer?', answer: "I'll grow tomatoes." },
+  ],
 };
 
-const SENTENCES_PER_UNIT = 6;
+// 6개 단원 × 4문장 = 24개 일반칸 (보드 구조는 그대로)
+const SENTENCES_PER_UNIT = 4;
 
 // 보드 배치 틀: START + 일반칸 24 + 액션칸 3 + FINISH = 29칸
 // (원래 동물 게임과 동일한 구조 — 'content' 자리에만 표현이 들어갑니다)
@@ -68,6 +81,8 @@ const UNIT_COLORS = {
   '2단원': 'text-sky-700 bg-sky-50 border-sky-300',
   '3단원': 'text-emerald-700 bg-emerald-50 border-emerald-300',
   '4단원': 'text-violet-700 bg-violet-50 border-violet-300',
+  '5단원': 'text-orange-700 bg-orange-50 border-orange-300',
+  '6단원': 'text-cyan-700 bg-cyan-50 border-cyan-300',
 };
 
 const shuffle = (arr) => {
@@ -280,6 +295,14 @@ const WORD_MEANING = {
   "tom's": '탐의 것', toms: '탐의 것', "jack's": '잭의 것', jacks: '잭의 것',
   "eric's": '에릭의 것', erics: '에릭의 것', "mike's": '마이크의 것', mikes: '마이크의 것',
   "sam's": '샘의 것', sams: '샘의 것',
+  // 5단원 (~하자)
+  "let's": '~하자', lets: '~하자', swimming: '수영', movies: '영화 (영화관)',
+  play: '(게임을) 하다/놀다', board: '보드/판', game: '게임', homework: '숙제',
+  sounds: '~하게 들리다', good: '좋은', sorry: '미안해',
+  // 6단원 (여름에 무엇을 할 거니?)
+  will: '~할 것이다', "i'll": '나는 ~할 것이다', ill: '나는 ~할 것이다',
+  summer: '여름', beach: '해변/바닷가', visit: '방문하다/찾아뵙다', grandpa: '할아버지',
+  read: '읽다', many: '많은', books: '책들', grow: '기르다/재배하다', tomatoes: '토마토들',
 };
 
 const lookupMeaning = (raw) => {
@@ -303,9 +326,9 @@ const pickRandomBlanks = (segs, count) => {
   return new Set(shuffleArr(idxs).slice(0, count));
 };
 
-// 보드에서 단원별 2개씩 (총 8개) 쓰기 활동 칸을 무작위로 뽑음
+// 보드에서 단원별 2개씩 (총 12개) 쓰기 활동 칸을 무작위로 뽑음
 const pickWritingCells = (board, perUnit = 2) => {
-  const units = ['1단원', '2단원', '3단원', '4단원'];
+  const units = Object.keys(UNIT_POOLS);
   const out = new Set();
   units.forEach((u) => {
     const ids = board
@@ -936,7 +959,7 @@ export default function App() {
 
   return (
     <div
-      className="min-h-screen bg-emerald-800 text-gray-800 p-4 flex flex-col items-center relative overflow-hidden"
+      className="min-h-screen bg-sky-600 text-gray-800 p-4 flex flex-col items-center relative overflow-hidden"
       style={appStyle}
     >
       <style>{`
@@ -987,24 +1010,35 @@ export default function App() {
         .face-bottom { transform: rotateX(-90deg) translateZ(64px); }
       `}</style>
 
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-emerald-700 to-emerald-900 opacity-80 pointer-events-none"></div>
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-sky-400 to-blue-800 opacity-80 pointer-events-none"></div>
 
-      <header className="w-full max-w-5xl flex flex-col md:flex-row justify-between items-center gap-4 mb-4 bg-white/95 backdrop-blur-sm p-4 rounded-2xl shadow-[0_4px_0_0_rgba(0,0,0,0.2)] z-10 border-2 border-emerald-900">
-        <h1 className="text-2xl md:text-3xl font-black text-emerald-800 uppercase tracking-wider flex items-center gap-2">
-          🦁 5학년 영어 표현 보드게임
+      {/* 여름 분위기 배경 장식 */}
+      <div className="absolute inset-0 pointer-events-none select-none z-0" aria-hidden="true">
+        <span className="absolute top-6 left-6 text-6xl md:text-8xl opacity-70 drop-shadow-lg">☀️</span>
+        <span className="absolute top-24 right-10 text-4xl md:text-6xl opacity-50">⛱️</span>
+        <span className="absolute bottom-24 left-8 text-4xl md:text-6xl opacity-50">🍉</span>
+        <span className="absolute bottom-10 right-16 text-4xl md:text-6xl opacity-50">🏄</span>
+        <span className="absolute bottom-0 left-0 w-full text-center text-3xl md:text-5xl opacity-30 tracking-[1em] whitespace-nowrap overflow-hidden">
+          🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊🌊
+        </span>
+      </div>
+
+      <header className="w-full max-w-5xl flex flex-col md:flex-row justify-between items-center gap-4 mb-4 bg-white/95 backdrop-blur-sm p-4 rounded-2xl shadow-[0_4px_0_0_rgba(0,0,0,0.2)] z-10 border-2 border-sky-900">
+        <h1 className="text-2xl md:text-3xl font-black text-sky-700 uppercase tracking-wider flex items-center gap-2">
+          🏖️ 5학년 영어 표현 보드게임 <span className="text-amber-500">여름특집</span>
         </h1>
 
         <div className="flex flex-col sm:flex-row gap-3 items-center">
           <div className="flex bg-gray-200 p-1 rounded-xl shadow-inner">
             <button
               onClick={() => handleModeChange('answerOnly')}
-              className={`px-4 py-2 rounded-lg font-bold transition-all text-sm md:text-base ${gameMode === 'answerOnly' ? 'bg-white shadow-sm text-emerald-800 border border-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-4 py-2 rounded-lg font-bold transition-all text-sm md:text-base ${gameMode === 'answerOnly' ? 'bg-white shadow-sm text-sky-700 border border-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
             >
               대답만 하기
             </button>
             <button
               onClick={() => handleModeChange('qna')}
-              className={`px-4 py-2 rounded-lg font-bold transition-all text-sm md:text-base ${gameMode === 'qna' ? 'bg-white shadow-sm text-emerald-800 border border-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-4 py-2 rounded-lg font-bold transition-all text-sm md:text-base ${gameMode === 'qna' ? 'bg-white shadow-sm text-sky-700 border border-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
             >
               질문&대답 같이
             </button>
@@ -1029,14 +1063,14 @@ export default function App() {
       {boardWritingMode && (
         <div className="w-full max-w-5xl bg-violet-100 border-4 border-violet-400 p-3 rounded-2xl mb-4 text-center z-10 animate-pulse">
           <p className="text-base md:text-lg font-black text-violet-800">
-            ✏️ 쓰기 활동 — 단원별 2개씩, 총 <span className="text-violet-900">8개 칸</span>에 표시된 ✏️ 쓰기 칸을 눌러보세요
+            ✏️ 쓰기 활동 — 단원별 2개씩, 총 <span className="text-violet-900">12개 칸</span>에 표시된 ✏️ 쓰기 칸을 눌러보세요
           </p>
         </div>
       )}
 
       {gameState === 'lobby' && (
-        <div className="w-full max-w-5xl bg-white/95 p-4 rounded-2xl shadow-md mb-4 text-center border-4 border-emerald-400 z-10 animate-pulse">
-          <h2 className="text-xl md:text-2xl font-black text-emerald-700">
+        <div className="w-full max-w-5xl bg-white/95 p-4 rounded-2xl shadow-md mb-4 text-center border-4 border-cyan-400 z-10 animate-pulse">
+          <h2 className="text-xl md:text-2xl font-black text-cyan-700">
             💡 그림을 클릭하면 질문과 대답 문장이 나와요. 듣고 따라 읽고 공책에 써보며 연습해봅시다!
           </h2>
         </div>
@@ -1058,7 +1092,7 @@ export default function App() {
 
           <div className="w-1/3 flex justify-center">
             {diceResult && !showDicePopup && (
-              <div className="text-lg bg-emerald-100 text-emerald-900 border-2 border-emerald-300 px-6 py-2 rounded-xl font-black shadow-sm transition-all">
+              <div className="text-lg bg-sky-100 text-sky-900 border-2 border-sky-300 px-6 py-2 rounded-xl font-black shadow-sm transition-all">
                 {diceResult}
               </div>
             )}
@@ -1115,7 +1149,7 @@ export default function App() {
               boardWritingMode && writingCellIds.has(idx)
                 ? ' bg-violet-50 border-violet-400 writing-glow ring-2 ring-violet-300'
                 : '';
-            cellStyle = `${baseStyle} bg-[#fdfbf7] border-[3px] border-[#d4bca3] shadow-[0_8px_0_0_#bca38f,0_15px_10px_rgba(0,0,0,0.2)] cursor-pointer hover:border-emerald-400 hover:shadow-[0_8px_0_0_#10b981,0_15px_10px_rgba(0,0,0,0.2)]${writingHi}`;
+            cellStyle = `${baseStyle} bg-[#fdfbf7] border-[3px] border-[#d4bca3] shadow-[0_8px_0_0_#bca38f,0_15px_10px_rgba(0,0,0,0.2)] cursor-pointer hover:border-cyan-400 hover:shadow-[0_8px_0_0_#06b6d4,0_15px_10px_rgba(0,0,0,0.2)]${writingHi}`;
           } else if (cell.type === 'start') {
             cellStyle = `${baseStyle} bg-gradient-to-b from-amber-200 to-amber-400 border-[3px] border-amber-500 shadow-[0_8px_0_0_#b45309,0_15px_10px_rgba(0,0,0,0.2)]`;
           } else if (cell.type === 'finish') {
@@ -1152,7 +1186,7 @@ export default function App() {
                       ✏️ 쓰기
                     </div>
                   )}
-                  <div className="absolute top-2 right-2 text-sm bg-gray-200/50 rounded-full w-6 h-6 flex items-center justify-center opacity-40 hover:opacity-100 hover:bg-emerald-100 transition-all">
+                  <div className="absolute top-2 right-2 text-sm bg-gray-200/50 rounded-full w-6 h-6 flex items-center justify-center opacity-40 hover:opacity-100 hover:bg-cyan-100 transition-all">
                     🔊
                   </div>
                   <CellImage
@@ -1212,7 +1246,7 @@ export default function App() {
           onClick={closePreview}
         >
           <div
-            className="bg-white rounded-[2rem] p-6 md:p-10 max-w-lg w-full text-center shadow-2xl border-8 border-emerald-400 relative max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-[2rem] p-6 md:p-10 max-w-lg w-full text-center shadow-2xl border-8 border-cyan-400 relative max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <button
@@ -1438,30 +1472,30 @@ export default function App() {
 
       {gameState === 'rps' && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] p-8 max-w-md w-full text-center shadow-2xl border-8 border-emerald-500 relative overflow-hidden">
+          <div className="bg-white rounded-[2rem] p-8 max-w-md w-full text-center shadow-2xl border-8 border-sky-500 relative overflow-hidden">
             <div className="absolute -top-10 -right-10 w-32 h-32 bg-yellow-300 rounded-full mix-blend-multiply filter blur-xl opacity-70"></div>
             <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-pink-300 rounded-full mix-blend-multiply filter blur-xl opacity-70"></div>
 
             {rpsState === 'idle' && (
               <div className="relative z-10">
-                <h2 className="text-3xl font-black mb-4 text-emerald-800">누가 먼저 할까요?</h2>
-                <p className="text-emerald-600 font-bold mb-8">가위바위보로 먼저 시작할 사람을 정해요!</p>
+                <h2 className="text-3xl font-black mb-4 text-sky-800">누가 먼저 할까요?</h2>
+                <p className="text-sky-600 font-bold mb-8">가위바위보로 먼저 시작할 사람을 정해요!</p>
                 <div className="flex justify-center gap-4">
                   <button
                     onClick={() => handleRPS('scissors')}
-                    className="text-5xl hover:scale-110 transition-transform bg-white p-5 rounded-2xl border-4 border-emerald-200 shadow-[0_8px_0_0_rgba(167,243,208,1)] active:shadow-none active:translate-y-2"
+                    className="text-5xl hover:scale-110 transition-transform bg-white p-5 rounded-2xl border-4 border-sky-200 shadow-[0_8px_0_0_rgba(186,230,253,1)] active:shadow-none active:translate-y-2"
                   >
                     ✌️
                   </button>
                   <button
                     onClick={() => handleRPS('rock')}
-                    className="text-5xl hover:scale-110 transition-transform bg-white p-5 rounded-2xl border-4 border-emerald-200 shadow-[0_8px_0_0_rgba(167,243,208,1)] active:shadow-none active:translate-y-2"
+                    className="text-5xl hover:scale-110 transition-transform bg-white p-5 rounded-2xl border-4 border-sky-200 shadow-[0_8px_0_0_rgba(186,230,253,1)] active:shadow-none active:translate-y-2"
                   >
                     ✊
                   </button>
                   <button
                     onClick={() => handleRPS('paper')}
-                    className="text-5xl hover:scale-110 transition-transform bg-white p-5 rounded-2xl border-4 border-emerald-200 shadow-[0_8px_0_0_rgba(167,243,208,1)] active:shadow-none active:translate-y-2"
+                    className="text-5xl hover:scale-110 transition-transform bg-white p-5 rounded-2xl border-4 border-sky-200 shadow-[0_8px_0_0_rgba(186,230,253,1)] active:shadow-none active:translate-y-2"
                   >
                     🖐️
                   </button>
