@@ -366,6 +366,12 @@ const pickWritingCells = (board, perUnit = 2) => {
 
 const ALL_UNITS = Object.keys(UNIT_POOLS);
 
+// 문장 하나를 고유하게 식별하는 key (별 스티커 저장·집계용)
+const sentenceKey = (item) => `${item.question}|${item.answer}`;
+const STARS_STORAGE_KEY = 'boardgame_stars_v1';
+// 전체 표현(단원 통합, 중복 제거) 개수 — 별을 모두 모으는 목표치
+const TOTAL_STARS = new Set(Object.values(UNIT_POOLS).flat().map(sentenceKey)).size;
+
 export default function App() {
   const [selectedUnits, setSelectedUnits] = useState(ALL_UNITS);
   const [board, setBoard] = useState(() => buildBoard(ALL_UNITS));
@@ -405,6 +411,17 @@ export default function App() {
   const [showGuide, setShowGuide] = useState(true); // 처음 접속 시 활동 방법 안내 팝업
   const [practiceTarget, setPracticeTarget] = useState(null); // 연습 녹음 중인 문장('question'|'answer')
   const [practiceResult, setPracticeResult] = useState(null); // 연습 녹음 정확도 결과
+  const [unitWarn, setUnitWarn] = useState(false); // 최소 2단원 경고 표시
+  // 별 스티커: 정확도를 통과한 문장 key들을 이 기기(localStorage)에 저장
+  const [stars, setStars] = useState(() => {
+    try {
+      const raw = window.localStorage.getItem('boardgame_stars_v1');
+      return raw ? new Set(JSON.parse(raw)) : new Set();
+    } catch (e) {
+      return new Set();
+    }
+  });
+  const [starPop, setStarPop] = useState(null); // 방금 별을 획득했을 때 축하 표시
 
   const [currentTask, setCurrentTask] = useState(null);
   const [isListening, setIsListening] = useState(false);
@@ -759,6 +776,7 @@ export default function App() {
     const isCorrect = required.length > 0 && matchAggregate(list, required);
 
     if (isCorrect) {
+      awardStar(task.cell);
       setFeedback('Excellent! 정답입니다! 🎉 (AI 턴으로 넘어갑니다)');
       speakText('Excellent!');
       setTimeout(() => {
@@ -825,7 +843,10 @@ export default function App() {
       const score = required.length ? Math.round((hits / required.length) * 100) : 0;
       const pass = required.length > 0 && matchAggregate(transcripts, required);
 
-      if (pass) speakText('Excellent!');
+      if (pass) {
+        speakText('Excellent!');
+        awardStar(previewCell);
+      }
       setPracticeResult({ type, score, pass });
       setPracticeTarget(null);
     };
@@ -962,12 +983,17 @@ export default function App() {
     setWriteRevealed(false);
   };
 
-  // 단원 토글: 최소 1개는 남기고, 바꾸면 로비에서 보드를 새로 구성
+  // 단원 토글: 최소 2개는 남기고, 바꾸면 로비에서 보드를 새로 구성
   const toggleUnit = (unit) => {
     if (gameState !== 'lobby') return;
+    const isRemoving = selectedUnits.includes(unit);
+    if (isRemoving && selectedUnits.length <= 2) {
+      setUnitWarn(true);
+      setTimeout(() => setUnitWarn(false), 2000);
+      return; // 2개 미만으로는 줄일 수 없음
+    }
     setSelectedUnits((prev) => {
       const next = prev.includes(unit) ? prev.filter((u) => u !== unit) : [...prev, unit];
-      if (next.length === 0) return prev; // 전부 끄는 것은 방지
       const ordered = ALL_UNITS.filter((u) => next.includes(u));
       setBoard(buildBoard(ordered));
       setBoardWritingMode(false);
@@ -1014,6 +1040,33 @@ export default function App() {
   const handleModeChange = (mode) => {
     // 모드만 바꾸고 보드 순서/진행 상태는 유지(원치 않는 재배치 방지)
     setGameMode(mode);
+  };
+
+  // 정확도를 통과한 문장에 별 스티커를 부여하고 이 기기에 저장
+  const awardStar = (item) => {
+    if (!item) return;
+    const key = sentenceKey(item);
+    if (stars.has(key)) return; // 이미 모은 별
+    const next = new Set(stars);
+    next.add(key);
+    try {
+      window.localStorage.setItem(STARS_STORAGE_KEY, JSON.stringify([...next]));
+    } catch (e) {
+      // 저장 실패해도 진행에는 지장 없음
+    }
+    setStars(next);
+    setStarPop(key);
+    setTimeout(() => setStarPop((c) => (c === key ? null : c)), 2600);
+  };
+
+  const resetStars = () => {
+    if (!window.confirm('모은 별 스티커를 모두 지울까요? 되돌릴 수 없어요.')) return;
+    try {
+      window.localStorage.removeItem(STARS_STORAGE_KEY);
+    } catch (e) {
+      // 무시
+    }
+    setStars(new Set());
   };
 
   const renderDots = (num) => {
@@ -1148,13 +1201,13 @@ export default function App() {
         </span>
       </div>
 
-      <header className="w-full max-w-5xl flex flex-col md:flex-row justify-between items-center gap-4 mb-4 bg-white/95 backdrop-blur-sm p-4 rounded-2xl shadow-[0_4px_0_0_rgba(0,0,0,0.2)] z-10 border-2 border-sky-900">
-        <h1 className="text-lg md:text-2xl font-black text-sky-700 tracking-tight flex flex-wrap items-center justify-center gap-x-2 whitespace-nowrap text-center">
+      <header className="w-full max-w-6xl flex flex-col lg:flex-row justify-between items-center gap-4 mb-4 bg-white/95 backdrop-blur-sm p-4 rounded-2xl shadow-[0_4px_0_0_rgba(0,0,0,0.2)] z-10 border-2 border-sky-900">
+        <h1 className="text-lg md:text-2xl font-black text-sky-700 tracking-tight flex flex-wrap items-center justify-center gap-x-2 whitespace-nowrap text-center shrink-0">
           🏖️ 5학년 1-6단원 주요표현 보드게임
           <span className="text-amber-500">with Writing</span>
         </h1>
 
-        <div className="flex flex-col sm:flex-row gap-3 items-center">
+        <div className="flex flex-wrap gap-2 items-center justify-center">
           <div className="flex shrink-0 bg-gray-200 p-1 rounded-xl shadow-inner">
             <button
               onClick={() => handleModeChange('answerOnly')}
@@ -1192,6 +1245,37 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {/* ⭐ 별 스티커 진행판 — 정확도를 통과한 문장을 이 기기에 모아둠 */}
+      <div className="w-full max-w-6xl bg-white/95 backdrop-blur-sm px-4 py-3 rounded-2xl shadow-[0_4px_0_0_rgba(0,0,0,0.2)] mb-4 z-10 border-2 border-amber-300 flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-2xl md:text-3xl">⭐</span>
+          <span className="font-black text-amber-700 text-sm md:text-base whitespace-nowrap">
+            내 별 스티커 <span className="text-amber-900">{stars.size}</span>
+            <span className="text-amber-400"> / {TOTAL_STARS}</span>
+          </span>
+        </div>
+        <div className="flex-1 min-w-[140px] h-4 bg-amber-100 rounded-full overflow-hidden border border-amber-200">
+          <div
+            className="h-full bg-gradient-to-r from-amber-400 to-yellow-400 rounded-full transition-all duration-700"
+            style={{ width: `${TOTAL_STARS ? (stars.size / TOTAL_STARS) * 100 : 0}%` }}
+          ></div>
+        </div>
+        <span className="text-xs font-bold text-slate-500 shrink-0 hidden sm:block">
+          🎤 문장을 정확히 말하면 별을 모아요!
+        </span>
+        {stars.size >= TOTAL_STARS && TOTAL_STARS > 0 && (
+          <span className="text-xs md:text-sm font-black text-rose-500 shrink-0 animate-pulse">🏆 전부 모았어요!</span>
+        )}
+        {stars.size > 0 && (
+          <button
+            onClick={resetStars}
+            className="text-xs font-bold text-slate-400 hover:text-rose-500 underline shrink-0"
+          >
+            별 초기화
+          </button>
+        )}
+      </div>
 
       {boardWritingMode && (
         <div className="w-full max-w-5xl bg-violet-100 border-4 border-violet-400 p-3 rounded-2xl mb-4 text-center z-10 animate-pulse">
@@ -1233,6 +1317,11 @@ export default function App() {
               선택: {selectedUnits.length}개 단원 · 단원당 약 {Math.floor(CONTENT_CELLS / selectedUnits.length)}칸
               {CONTENT_CELLS % selectedUnits.length ? ' 이상' : ''} (같은 표현이 여러 번 나올 수 있어요)
             </p>
+            {unitWarn && (
+              <p className="text-xs md:text-sm font-black text-rose-500 text-center mt-1 animate-bounce">
+                ⚠️ 단원은 최소 2개 이상 선택해야 해요!
+              </p>
+            )}
           </div>
         </div>
       )}
@@ -1383,6 +1472,11 @@ export default function App() {
                   <div className="absolute top-2 right-2 text-sm bg-gray-200/50 rounded-full w-6 h-6 flex items-center justify-center opacity-40 hover:opacity-100 hover:bg-cyan-100 transition-all">
                     🔊
                   </div>
+                  {stars.has(sentenceKey(cell)) && (
+                    <div className="absolute top-1 left-1 text-xl md:text-2xl z-20 drop-shadow-[0_1px_1px_rgba(0,0,0,0.3)]" title="별을 모은 문장이에요!">
+                      ⭐
+                    </div>
+                  )}
                   <CellImage
                     src={cell.image}
                     alt={cell.answer}
@@ -2025,6 +2119,14 @@ export default function App() {
                 <p className="text-3xl font-black text-slate-800 transition-all duration-300">{aiSpeechText}</p>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {starPop && (
+        <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[90] pointer-events-none">
+          <div className="bg-amber-400 text-amber-950 font-black text-lg md:text-xl px-6 py-3 rounded-full shadow-2xl border-4 border-white flex items-center gap-2 animate-bounce">
+            <span className="text-2xl">⭐</span> 별 스티커 획득! (총 {stars.size}개)
           </div>
         </div>
       )}
