@@ -1223,26 +1223,30 @@ export default function App() {
             </button>
           </div>
 
-          <button
-            onClick={() => setShowGuide(true)}
-            className="px-4 py-2 rounded-xl font-bold whitespace-nowrap bg-sky-500 hover:bg-sky-400 text-white transition-all shadow-[0_4px_0_0_rgba(3,105,161,1)] active:shadow-[0_0px_0_0_rgba(3,105,161,1)] active:translate-y-1"
-          >
-            📖 활동 방법
-          </button>
+          <div className="flex flex-col gap-2">
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowGuide(true)}
+                className="px-4 py-2 rounded-xl font-bold whitespace-nowrap bg-sky-500 hover:bg-sky-400 text-white transition-all shadow-[0_4px_0_0_rgba(3,105,161,1)] active:shadow-[0_0px_0_0_rgba(3,105,161,1)] active:translate-y-1"
+              >
+                📖 활동 방법
+              </button>
 
-          <button
-            onClick={toggleBoardWriting}
-            className={`px-5 py-2 rounded-xl font-bold transition-all whitespace-nowrap shadow-[0_4px_0_0_rgba(124,58,237,1)] active:shadow-[0_0px_0_0_rgba(124,58,237,1)] active:translate-y-1 ${boardWritingMode ? 'bg-violet-600 text-white' : 'bg-violet-500 hover:bg-violet-400 text-white'}`}
-          >
-            {boardWritingMode ? '✏️ 쓰기 활동 끄기' : '✏️ 쓰기 활동'}
-          </button>
+              <button
+                onClick={toggleBoardWriting}
+                className={`px-5 py-2 rounded-xl font-bold transition-all whitespace-nowrap shadow-[0_4px_0_0_rgba(124,58,237,1)] active:shadow-[0_0px_0_0_rgba(124,58,237,1)] active:translate-y-1 ${boardWritingMode ? 'bg-violet-600 text-white' : 'bg-violet-500 hover:bg-violet-400 text-white'}`}
+              >
+                {boardWritingMode ? '✏️ 쓰기 활동 끄기' : '✏️ 쓰기 활동'}
+              </button>
+            </div>
 
-          <button
-            onClick={resetGame}
-            className="px-5 py-2 bg-amber-500 hover:bg-amber-400 text-amber-950 rounded-xl font-bold transition-all shadow-[0_4px_0_0_rgba(180,83,9,1)] active:shadow-[0_0px_0_0_rgba(180,83,9,1)] active:translate-y-1 whitespace-nowrap"
-          >
-            처음부터 다시 하기
-          </button>
+            <button
+              onClick={resetGame}
+              className="w-full px-5 py-2 bg-amber-500 hover:bg-amber-400 text-amber-950 rounded-xl font-bold transition-all shadow-[0_4px_0_0_rgba(180,83,9,1)] active:shadow-[0_0px_0_0_rgba(180,83,9,1)] active:translate-y-1 whitespace-nowrap"
+            >
+              처음부터 다시 하기
+            </button>
+          </div>
         </div>
       </header>
 
