@@ -85,6 +85,16 @@ const UNIT_COLORS = {
   '6단원': 'text-cyan-700 bg-cyan-50 border-cyan-300',
 };
 
+// 보드 칸을 단원별 파스텔 색으로 칠해 알록달록한 게임판 느낌을 냄
+const UNIT_CELL_TINT = {
+  '1단원': 'bg-rose-50',
+  '2단원': 'bg-sky-50',
+  '3단원': 'bg-emerald-50',
+  '4단원': 'bg-violet-50',
+  '5단원': 'bg-orange-50',
+  '6단원': 'bg-cyan-50',
+};
+
 const shuffle = (arr) => {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -1024,21 +1034,22 @@ export default function App() {
       </div>
 
       <header className="w-full max-w-5xl flex flex-col md:flex-row justify-between items-center gap-4 mb-4 bg-white/95 backdrop-blur-sm p-4 rounded-2xl shadow-[0_4px_0_0_rgba(0,0,0,0.2)] z-10 border-2 border-sky-900">
-        <h1 className="text-2xl md:text-3xl font-black text-sky-700 uppercase tracking-wider flex items-center gap-2">
-          🏖️ 5학년 1-6단원 주요표현 보드게임 <span className="text-amber-500">with Writing</span>
+        <h1 className="text-lg md:text-2xl font-black text-sky-700 tracking-tight flex flex-wrap items-center justify-center gap-x-2 whitespace-nowrap text-center">
+          🏖️ 5학년 1-6단원 주요표현 보드게임
+          <span className="text-amber-500">with Writing</span>
         </h1>
 
         <div className="flex flex-col sm:flex-row gap-3 items-center">
-          <div className="flex bg-gray-200 p-1 rounded-xl shadow-inner">
+          <div className="flex shrink-0 bg-gray-200 p-1 rounded-xl shadow-inner">
             <button
               onClick={() => handleModeChange('answerOnly')}
-              className={`px-4 py-2 rounded-lg font-bold transition-all text-sm md:text-base ${gameMode === 'answerOnly' ? 'bg-white shadow-sm text-sky-700 border border-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-4 py-2 rounded-lg font-bold transition-all text-sm md:text-base whitespace-nowrap ${gameMode === 'answerOnly' ? 'bg-white shadow-sm text-sky-700 border border-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
             >
               대답만 하기
             </button>
             <button
               onClick={() => handleModeChange('qna')}
-              className={`px-4 py-2 rounded-lg font-bold transition-all text-sm md:text-base ${gameMode === 'qna' ? 'bg-white shadow-sm text-sky-700 border border-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
+              className={`px-4 py-2 rounded-lg font-bold transition-all text-sm md:text-base whitespace-nowrap ${gameMode === 'qna' ? 'bg-white shadow-sm text-sky-700 border border-gray-300' : 'text-gray-500 hover:text-gray-700'}`}
             >
               질문&대답 같이
             </button>
@@ -1126,30 +1137,45 @@ export default function App() {
         </div>
       )}
 
-      <div
-        className={`w-full max-w-6xl p-8 md:p-14 rounded-[3rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] grid grid-cols-3 md:grid-cols-6 gap-4 md:gap-5 relative z-10 border-[16px] border-[#4a2e15] bg-[#e8dcc4] overflow-hidden ${gameState === 'lobby' ? 'mb-24' : ''}`}
-      >
-        <div className="absolute inset-0 pointer-events-none opacity-20 z-0">
-          <div className="absolute top-1/2 left-0 w-full h-[3px] bg-[#4a2e15]"></div>
-          <div className="absolute top-0 left-1/2 w-[3px] h-full bg-[#4a2e15]"></div>
-        </div>
-
+      <div className={`w-full max-w-6xl overflow-x-auto z-10 ${gameState === 'lobby' ? 'mb-24' : ''}`}>
+      <div className="min-w-[860px] p-8 md:p-12 rounded-[3rem] shadow-[0_30px_60px_-15px_rgba(0,0,0,0.8)] grid grid-cols-6 gap-4 md:gap-5 relative border-[16px] border-[#4a2e15] bg-[#f0e4c8] overflow-hidden">
         <div className="absolute inset-0 pointer-events-none opacity-[0.04] z-0 bg-[radial-gradient(#000_2px,transparent_2px)] [background-size:20px_20px]"></div>
+
+        {/* 게임판 테두리 장식 */}
+        <div className="absolute inset-0 pointer-events-none z-0 text-2xl md:text-3xl opacity-40 select-none" aria-hidden="true">
+          <span className="absolute top-1 left-5">🐚</span>
+          <span className="absolute top-1 right-5">⭐</span>
+          <span className="absolute bottom-1 left-5">🦀</span>
+          <span className="absolute bottom-1 right-5">🐠</span>
+        </div>
 
         {board.map((cell, idx) => {
           const isPlayerHere = playerPos === idx;
           const isAiHere = aiPos === idx;
+
+          // 뱀 모양(지그재그) 경로: 짝수 줄은 왼→오, 홀수 줄은 오→왼으로 꺾어 배치
+          const COLS = 6;
+          const row = Math.floor(idx / COLS);
+          const colInRow = idx % COLS;
+          const col = row % 2 === 0 ? colInRow : COLS - 1 - colInRow;
+          const nextDir =
+            idx >= board.length - 1
+              ? null
+              : colInRow === COLS - 1
+                ? 'down'
+                : row % 2 === 0
+                  ? 'right'
+                  : 'left';
 
           let baseStyle =
             'w-full h-32 md:h-[184px] rounded-2xl flex flex-col items-center justify-center relative transform transition-all duration-300 hover:-translate-y-2 z-10 group';
           let cellStyle = '';
 
           if (cell.type === 'normal') {
-            const writingHi =
-              boardWritingMode && writingCellIds.has(idx)
-                ? ' bg-violet-50 border-violet-400 writing-glow ring-2 ring-violet-300'
-                : '';
-            cellStyle = `${baseStyle} bg-[#fdfbf7] border-[3px] border-[#d4bca3] shadow-[0_8px_0_0_#bca38f,0_15px_10px_rgba(0,0,0,0.2)] cursor-pointer hover:border-cyan-400 hover:shadow-[0_8px_0_0_#06b6d4,0_15px_10px_rgba(0,0,0,0.2)]${writingHi}`;
+            const isWritingCell = boardWritingMode && writingCellIds.has(idx);
+            const writingHi = isWritingCell ? ' border-violet-400 writing-glow ring-2 ring-violet-300' : '';
+            const tint = isWritingCell ? 'bg-violet-50' : UNIT_CELL_TINT[cell.unit] || 'bg-[#fdfbf7]';
+            cellStyle = `${baseStyle} ${tint} border-[3px] border-[#d4bca3] shadow-[0_8px_0_0_#bca38f,0_15px_10px_rgba(0,0,0,0.2)] cursor-pointer hover:border-cyan-400 hover:shadow-[0_8px_0_0_#06b6d4,0_15px_10px_rgba(0,0,0,0.2)]${writingHi}`;
           } else if (cell.type === 'start') {
             cellStyle = `${baseStyle} bg-gradient-to-b from-amber-200 to-amber-400 border-[3px] border-amber-500 shadow-[0_8px_0_0_#b45309,0_15px_10px_rgba(0,0,0,0.2)]`;
           } else if (cell.type === 'finish') {
@@ -1161,11 +1187,29 @@ export default function App() {
                 : cell.action === 'forward2'
                   ? 'bg-green-100 border-green-300 shadow-[0_8px_0_0_#86efac,0_15px_10px_rgba(0,0,0,0.2)]'
                   : 'bg-red-100 border-red-300 shadow-[0_8px_0_0_#fca5a5,0_15px_10px_rgba(0,0,0,0.2)]';
-            cellStyle = `${baseStyle} ${actionColor} border-[3px]`;
+            cellStyle = `${baseStyle} ${actionColor} border-[3px] border-dashed`;
           }
 
           return (
-            <div key={idx} className={cellStyle} onClick={() => handleCellClick(cell)}>
+            <div
+              key={idx}
+              className={cellStyle}
+              style={{ gridRowStart: row + 1, gridColumnStart: col + 1 }}
+              onClick={() => handleCellClick(cell)}
+            >
+              {nextDir && (
+                <div
+                  className={`absolute z-20 text-amber-600 font-black pointer-events-none drop-shadow-[0_2px_0_rgba(255,255,255,0.7)] text-xl md:text-2xl ${
+                    nextDir === 'right'
+                      ? 'top-1/2 -translate-y-1/2 -right-[23px]'
+                      : nextDir === 'left'
+                        ? 'top-1/2 -translate-y-1/2 -left-[23px]'
+                        : '-bottom-7 left-1/2 -translate-x-1/2 rotate-90'
+                  }`}
+                >
+                  {nextDir === 'left' ? '◀' : '▶'}
+                </div>
+              )}
               <div className="absolute -top-4 -left-2 md:-top-6 md:-left-4 flex gap-1 z-30 w-full px-1">
                 {isPlayerHere && (
                   <div className="w-12 h-12 md:w-14 md:h-14 bg-gradient-to-br from-blue-400 to-blue-700 rounded-full border-[3px] border-white shadow-[0_8px_10px_rgba(0,0,0,0.5),inset_0_4px_4px_rgba(255,255,255,0.4)] flex items-center justify-center text-2xl md:text-3xl animate-bounce z-40">
@@ -1211,9 +1255,14 @@ export default function App() {
               )}
 
               {(cell.type === 'start' || cell.type === 'finish') && (
-                <div className="font-black text-xl md:text-2xl text-white tracking-wider drop-shadow-md bg-black/20 px-3 py-1 rounded-lg border border-white/30">
-                  {cell.label}
-                </div>
+                <>
+                  <div className="text-4xl md:text-6xl mb-1 drop-shadow-md">
+                    {cell.type === 'start' ? '🚩' : '🏁'}
+                  </div>
+                  <div className="font-black text-lg md:text-2xl text-white tracking-wider drop-shadow-md bg-black/20 px-3 py-1 rounded-lg border border-white/30">
+                    {cell.label}
+                  </div>
+                </>
               )}
 
               <div className="absolute -bottom-3 right-2 md:right-3 w-6 h-6 md:w-8 md:h-8 bg-[#5c3a21] text-[#e8dcc4] rounded-full flex items-center justify-center text-[10px] md:text-sm font-black shadow-[0_4px_0_0_rgba(0,0,0,0.3)] border-2 border-[#e8dcc4] z-20">
@@ -1222,6 +1271,7 @@ export default function App() {
             </div>
           );
         })}
+      </div>
       </div>
 
       {gameState === 'lobby' && (
