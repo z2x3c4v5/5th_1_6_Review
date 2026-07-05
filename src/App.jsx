@@ -384,6 +384,9 @@ export default function App() {
   const [boardWritingMode, setBoardWritingMode] = useState(false); // 헤더 쓰기 활동(보드 칸 강조)
   const [writingCellIds, setWritingCellIds] = useState(() => new Set()); // 쓰기 활동 대상 칸 id 집합
   const [attemptCount, setAttemptCount] = useState(0); // 말하기 시도 횟수(3번 후 자동 통과)
+  const [showGuide, setShowGuide] = useState(true); // 처음 접속 시 활동 방법 안내 팝업
+  const [practiceTarget, setPracticeTarget] = useState(null); // 연습 녹음 중인 문장('question'|'answer')
+  const [practiceResult, setPracticeResult] = useState(null); // 연습 녹음 정확도 결과
 
   const [currentTask, setCurrentTask] = useState(null);
   const [isListening, setIsListening] = useState(false);
@@ -393,6 +396,7 @@ export default function App() {
 
   // --- 마이크 오류 방지 로직 ---
   const recognitionRef = useRef(null);
+  const practiceRecRef = useRef(null);
   const currentTaskRef = useRef(null);
   const isListeningRef = useRef(false);
 
@@ -763,6 +767,75 @@ export default function App() {
     });
   };
 
+  // 연습 팝업에서 질문/대답을 녹음해 정확도를 측정 (게임 판정과 같은 로직 사용)
+  const startPracticeListening = (type) => {
+    if (!previewCell || practiceTarget) return;
+
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      alert('이 브라우저는 음성 인식을 지원하지 않습니다. Chrome을 사용해주세요.');
+      return;
+    }
+
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+    if (practiceRecRef.current) {
+      try {
+        practiceRecRef.current.abort();
+      } catch (e) {
+        // 무시
+      }
+    }
+
+    const target = type === 'question' ? previewCell.question : previewCell.answer;
+    const required = contentTokens(target);
+
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.lang = 'en-US';
+    recognition.interimResults = false;
+    recognition.maxAlternatives = 5;
+
+    recognition.onresult = (event) => {
+      const result = event.results[0];
+      const transcripts = [];
+      for (let i = 0; i < result.length; i++) transcripts.push(result[i].transcript);
+
+      let spokenToks = [];
+      transcripts.forEach((t) => { spokenToks = spokenToks.concat(tokenize(t)); });
+      const spokenConcat = spokenToks.join('');
+      const hits = required.filter((tok) => tokenMatches(tok, spokenToks, spokenConcat)).length;
+      const score = required.length ? Math.round((hits / required.length) * 100) : 0;
+      const pass = required.length > 0 && matchAggregate(transcripts, required);
+
+      if (pass) speakText('Excellent!');
+      setPracticeResult({ type, score, pass });
+      setPracticeTarget(null);
+    };
+
+    recognition.onerror = (event) => {
+      setPracticeTarget(null);
+      if (event.error === 'no-speech') {
+        setPracticeResult({ type, noSpeech: true });
+      } else if (event.error !== 'aborted') {
+        setPracticeResult({ type, error: true });
+      }
+    };
+
+    recognition.onend = () => {
+      setPracticeTarget((cur) => (cur === type ? null : cur));
+    };
+
+    practiceRecRef.current = recognition;
+    setPracticeResult(null);
+    setPracticeTarget(type);
+    try {
+      recognition.start();
+    } catch (e) {
+      console.warn('연습 마이크 시작 오류 방어:', e);
+      setPracticeTarget(null);
+    }
+  };
+
   const startAiSpeakingTask = (cell) => {
     setGameState('aiSpeaking');
     setAiSpeechText('음... 🤔');
@@ -816,6 +889,7 @@ export default function App() {
 
     setWordHint(null);
     setWriteRevealed(false);
+    setPracticeResult(null);
     setPreviewCell(cell);
 
     if (boardWritingMode && writingCellIds.has(cell.id)) {
@@ -832,6 +906,15 @@ export default function App() {
   };
 
   const closePreview = () => {
+    if (practiceRecRef.current) {
+      try {
+        practiceRecRef.current.abort();
+      } catch (e) {
+        // 무시
+      }
+    }
+    setPracticeTarget(null);
+    setPracticeResult(null);
     setPreviewCell(null);
     setWordHint(null);
     setWriteMode(false);
@@ -1054,6 +1137,13 @@ export default function App() {
               질문&대답 같이
             </button>
           </div>
+
+          <button
+            onClick={() => setShowGuide(true)}
+            className="px-4 py-2 rounded-xl font-bold whitespace-nowrap bg-sky-500 hover:bg-sky-400 text-white transition-all shadow-[0_4px_0_0_rgba(3,105,161,1)] active:shadow-[0_0px_0_0_rgba(3,105,161,1)] active:translate-y-1"
+          >
+            📖 활동 방법
+          </button>
 
           <button
             onClick={toggleBoardWriting}
@@ -1290,6 +1380,65 @@ export default function App() {
         </div>
       )}
 
+      {showGuide && (
+        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-[95] p-4 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] p-6 md:p-8 max-w-xl w-full shadow-2xl border-8 border-amber-400 max-h-[90vh] overflow-y-auto">
+            <h2 className="text-2xl md:text-3xl font-black text-center text-sky-700 mb-1">🏖️ 이렇게 활동해요!</h2>
+            <p className="text-center text-sm font-bold text-slate-400 mb-5">
+              순서대로 하면 듣기 · 말하기 · 쓰기를 모두 연습할 수 있어요
+            </p>
+
+            <ol className="space-y-3 text-left">
+              <li className="flex gap-3 items-start bg-sky-50 border-2 border-sky-200 rounded-2xl p-3">
+                <span className="w-8 h-8 shrink-0 bg-sky-500 text-white rounded-full flex items-center justify-center font-black">1</span>
+                <div>
+                  <p className="font-black text-slate-800">그림 칸을 눌러 듣고 열심히 따라 말하기 🔊</p>
+                  <p className="text-sm font-bold text-slate-500">
+                    문장을 듣고 큰 소리로 따라 해요. 🎤 버튼으로 녹음하면 내 발음의 정확도도 알려줘요!
+                  </p>
+                </div>
+              </li>
+              <li className="flex gap-3 items-start bg-amber-50 border-2 border-amber-200 rounded-2xl p-3">
+                <span className="w-8 h-8 shrink-0 bg-amber-500 text-white rounded-full flex items-center justify-center font-black">2</span>
+                <div>
+                  <p className="font-black text-slate-800">
+                    <span className="text-amber-600">대답만 하기</span> 모드로 AI와 한 판! 🎲
+                  </p>
+                  <p className="text-sm font-bold text-slate-500">주사위를 굴려 도착한 칸의 그림을 보고 대답을 영어로 말해요.</p>
+                </div>
+              </li>
+              <li className="flex gap-3 items-start bg-emerald-50 border-2 border-emerald-200 rounded-2xl p-3">
+                <span className="w-8 h-8 shrink-0 bg-emerald-500 text-white rounded-full flex items-center justify-center font-black">3</span>
+                <div>
+                  <p className="font-black text-slate-800">
+                    <span className="text-emerald-600">질문&대답 같이</span> 모드로 한 판 더! 💬
+                  </p>
+                  <p className="text-sm font-bold text-slate-500">이번에는 질문과 대답을 모두 스스로 말해요.</p>
+                </div>
+              </li>
+              <li className="flex gap-3 items-start bg-violet-50 border-2 border-violet-200 rounded-2xl p-3">
+                <span className="w-8 h-8 shrink-0 bg-violet-500 text-white rounded-full flex items-center justify-center font-black">4</span>
+                <div>
+                  <p className="font-black text-slate-800">
+                    <span className="text-violet-600">✏️ 쓰기 활동</span>으로 마무리!
+                  </p>
+                  <p className="text-sm font-bold text-slate-500">
+                    ✏️ 쓰기 활동 버튼을 누르고, ✏️ 표시가 붙은 칸을 골라 빈칸을 채운 전체 문장을 공책에 써요.
+                  </p>
+                </div>
+              </li>
+            </ol>
+
+            <button
+              onClick={() => setShowGuide(false)}
+              className="mt-6 w-full py-4 bg-amber-500 hover:bg-amber-400 text-white rounded-2xl font-black text-xl md:text-2xl transition-transform border-b-8 border-amber-600 active:border-b-0 active:translate-y-2"
+            >
+              좋아요, 시작할래요! 🚀
+            </button>
+          </div>
+        </div>
+      )}
+
       {previewCell && (
         <div
           className="fixed inset-0 bg-black/70 flex items-center justify-center z-[80] p-4 backdrop-blur-sm"
@@ -1354,6 +1503,69 @@ export default function App() {
                   >
                     🔊 다시 듣기
                   </button>
+                </div>
+
+                <div className="mt-4 bg-sky-50 border-2 border-sky-200 rounded-2xl p-4">
+                  <p className="text-sm font-black text-sky-700 mb-3">
+                    🎤 직접 말해보고 정확도를 확인해봐요!
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <button
+                      onClick={() => startPracticeListening('question')}
+                      disabled={practiceTarget !== null}
+                      className={`px-4 py-2 rounded-full font-black text-sm md:text-base transition-all shadow-[0_4px_0_0_rgba(29,78,216,1)] active:shadow-none active:translate-y-1
+                        ${practiceTarget === 'question' ? 'bg-red-500 text-white animate-pulse shadow-none translate-y-1' : 'bg-blue-500 hover:bg-blue-400 text-white'}
+                        ${practiceTarget !== null && practiceTarget !== 'question' ? 'opacity-50' : ''}`}
+                    >
+                      {practiceTarget === 'question' ? '🎙️ 듣는 중...' : '🎤 질문 말하기'}
+                    </button>
+                    <button
+                      onClick={() => startPracticeListening('answer')}
+                      disabled={practiceTarget !== null}
+                      className={`px-4 py-2 rounded-full font-black text-sm md:text-base transition-all shadow-[0_4px_0_0_rgba(180,83,9,1)] active:shadow-none active:translate-y-1
+                        ${practiceTarget === 'answer' ? 'bg-red-500 text-white animate-pulse shadow-none translate-y-1' : 'bg-amber-500 hover:bg-amber-400 text-white'}
+                        ${practiceTarget !== null && practiceTarget !== 'answer' ? 'opacity-50' : ''}`}
+                    >
+                      {practiceTarget === 'answer' ? '🎙️ 듣는 중...' : '🎤 대답 말하기'}
+                    </button>
+                  </div>
+
+                  {practiceTarget && (
+                    <p className="text-red-500 font-bold mt-3 animate-pulse text-sm">듣고 있어요... 큰 소리로 말해보세요! 🗣️</p>
+                  )}
+
+                  {practiceResult && !practiceTarget && (
+                    <div className="mt-3">
+                      {practiceResult.noSpeech ? (
+                        <p className="text-sm font-black text-rose-500 bg-rose-50 border-2 border-rose-200 rounded-xl py-2 px-3">
+                          목소리가 안 들렸어요. 버튼을 누르고 크게 말해보세요! 🎤
+                        </p>
+                      ) : practiceResult.error ? (
+                        <p className="text-sm font-black text-rose-500 bg-rose-50 border-2 border-rose-200 rounded-xl py-2 px-3">
+                          마이크 연결이 불안정해요. 다시 시도해주세요!
+                        </p>
+                      ) : (
+                        <div
+                          className={`rounded-xl py-2 px-3 border-2 ${practiceResult.pass ? 'bg-green-50 border-green-300' : 'bg-amber-50 border-amber-300'}`}
+                        >
+                          <p className={`text-base font-black ${practiceResult.pass ? 'text-green-700' : 'text-amber-700'}`}>
+                            {practiceResult.type === 'question' ? '질문' : '대답'} 정확도 {practiceResult.score}%{' '}
+                            {practiceResult.pass
+                              ? '· Excellent! 🎉'
+                              : practiceResult.score >= 50
+                                ? '· 아깝다, 조금만 더! 💪'
+                                : '· 다시 듣고 도전해봐요! 🌱'}
+                          </p>
+                          <div className="w-full bg-slate-200 h-3 rounded-full mt-2 overflow-hidden">
+                            <div
+                              className={`h-full rounded-full transition-all duration-500 ${practiceResult.pass ? 'bg-green-500' : 'bg-amber-400'}`}
+                              style={{ width: `${practiceResult.score}%` }}
+                            ></div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </>
             ) : (
