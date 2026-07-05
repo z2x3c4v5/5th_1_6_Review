@@ -1025,7 +1025,7 @@ export default function App() {
 
       <header className="w-full max-w-5xl flex flex-col md:flex-row justify-between items-center gap-4 mb-4 bg-white/95 backdrop-blur-sm p-4 rounded-2xl shadow-[0_4px_0_0_rgba(0,0,0,0.2)] z-10 border-2 border-sky-900">
         <h1 className="text-2xl md:text-3xl font-black text-sky-700 uppercase tracking-wider flex items-center gap-2">
-          🏖️ 5학년 영어 표현 보드게임 <span className="text-amber-500">여름특집</span>
+          🏖️ 5학년 1-6단원 주요표현 보드게임 <span className="text-amber-500">with Writing</span>
         </h1>
 
         <div className="flex flex-col sm:flex-row gap-3 items-center">
