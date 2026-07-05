@@ -1587,6 +1587,16 @@ export default function App() {
               </li>
             </ol>
 
+            <div className="mt-4 flex gap-3 items-start bg-amber-50 border-2 border-amber-200 rounded-2xl p-3">
+              <span className="text-2xl shrink-0">⭐</span>
+              <div>
+                <p className="font-black text-slate-800">별 스티커를 모아요!</p>
+                <p className="text-sm font-bold text-slate-500">
+                  문장을 정확하게 말해서 통과하면 별을 얻어요. 위쪽 막대에 내 별이 쌓이고, 모은 별은 다음에 켜도 그대로 있어요. 6개 단원 문장 <span className="text-amber-600">{TOTAL_STARS}개</span>를 모두 모아보세요!
+                </p>
+              </div>
+            </div>
+
             <button
               onClick={() => setShowGuide(false)}
               className="mt-6 w-full py-4 bg-amber-500 hover:bg-amber-400 text-white rounded-2xl font-black text-xl md:text-2xl transition-transform border-b-8 border-amber-600 active:border-b-0 active:translate-y-2"
