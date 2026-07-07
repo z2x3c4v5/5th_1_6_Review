@@ -161,10 +161,25 @@ const ORDINAL_WORDS = {
 
 const STOPWORDS = new Set([
   'the', 'a', 'an', 'am', 'is', 'are', 'was', 'were', 'be', 'been', 'i', 'im', 'my', 'me',
-  'mine', 'on', 'it', 'its', 'in', 'of', 'to', 'you', 'your', 'and', 'can', 'do', 'does',
+  'on', 'it', 'its', 'in', 'of', 'to', 'you', 'your', 'and', 'can', 'do', 'does',
   'did', 'go', 'goes', 'got', 'get', 'have', 'has', 'had', 'will', 'at', 'for', 'with',
   'because', 'this', 'that', 'so', 'very',
+  // 축약형·기능어(인식 오차가 큰 것) — 핵심 판정에서 제외
+  'ill', 'theyre', 'lets',
 ]);
+
+// 인식이 잘 안 되는 단어의 대체 후보(발음 오인식/띄어읽기 허용).
+// 아이가 살짝 다르게 발음하거나 엔진이 잘못 알아들어도 정답으로 인정하기 위한 목록.
+const WORD_ALIASES = {
+  scissors: ['scissor', 'sissors', 'scissers', 'sizzers', 'sizzlers', 'sizzler', 'sisters', 'sister', 'sizzlas', 'seizures', 'seizure', 'caesars', 'cesar', 'scizzors'],
+  mine: ['main', 'mines', 'mind', 'maine', 'mine'],
+  taekwondo: ['taekwon', 'kwondo', 'taekwando', 'taekwendo', 'tekwondo', 'tackwondo', 'taikwondo', 'taegwondo', 'taquando', 'tywondo', 'tackwando', 'taekwon do', 'tae kwon do'],
+  comic: ['comics', 'comik', 'comec'],
+  grandpa: ['grampa', 'granpa', 'grandpah', 'grandma'],
+  tomatoes: ['tomato', 'tomatos', 'tomatas', 'tomatos'],
+  albums: ['album', 'albam', 'alboms'],
+  vietnam: ['viet', 'vietnem', 'vietnaam', 'bietnam'],
+};
 
 const normWord = (w) => {
   const s = w.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -195,15 +210,25 @@ const lev = (a, b) => {
   return prev[n];
 };
 
+// 하나의 형태(정답 단어 또는 그 대체 후보)가 학생 발화에 (대략) 들어 있는지 판정
+const matchesOne = (form, spokenToks, spokenConcat) => {
+  const f = form.replace(/\s+/g, ''); // 'tae kwon do' 같이 띄어 말한 후보도 붙여서 비교
+  if (spokenConcat.includes(f)) return true; // 붙여 말한 경우까지 포함해 부분 일치
+  return spokenToks.some((st) => {
+    if (st.length >= 3 && (f.startsWith(st) || st.startsWith(f))) return true;
+    // 짧은 단어는 1, 보통은 2, 긴 단어(8글자↑)는 3글자까지 발음 오차 허용
+    const thr = f.length <= 4 ? 1 : f.length <= 7 ? 2 : 3;
+    return lev(st, f) <= thr;
+  });
+};
+
 // 정답의 핵심 단어 하나가 학생 발화에 (대략) 들어 있는지 판정
+//  · 숫자는 정확히 일치
+//  · 그 외에는 단어 자체 + 대체 후보(WORD_ALIASES) 중 하나라도 맞으면 인정
 const tokenMatches = (tok, spokenToks, spokenConcat) => {
   if (/^\d+$/.test(tok)) return spokenToks.includes(tok); // 숫자(학년·날짜)는 정확히 일치
-  if (spokenConcat.includes(tok)) return true;
-  return spokenToks.some((st) => {
-    if (st.length >= 3 && (tok.startsWith(st) || st.startsWith(tok))) return true;
-    const thr = tok.length <= 5 ? 1 : 2; // 짧은 단어는 1글자, 긴 단어는 2글자까지 차이 허용
-    return lev(st, tok) <= thr;
-  });
+  const forms = WORD_ALIASES[tok] ? [tok, ...WORD_ALIASES[tok]] : [tok];
+  return forms.some((f) => matchesOne(f, spokenToks, spokenConcat));
 };
 
 // 여러 인식 후보를 모두 합쳐서 정답 핵심 단어가 충분히 들어 있으면 통과
